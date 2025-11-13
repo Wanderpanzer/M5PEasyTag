@@ -1,3 +1,6 @@
+- 複数画像がある時はスライドショー表示する
+    - SDからcard.png表示に成功 かつ SDのルートに他のpngファイルが存在 かつ 定数INTERVALが0より大きい ならば SDのルートにあるpngをINTERVAL秒ごとに次々表示する
+
 # M5PEasyTag
 Create your name tag with M5Paper series!
 

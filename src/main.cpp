@@ -11,8 +11,15 @@
 #include <epdiy.h> // Necessary only for M5PaperS3
 #endif
 #include <SPI.h>
-
 WebServer server(80);
+
+
+constexpr uint8_t MAX_IMAGES = 32; // 画像ファイルの最大数
+String imageList[MAX_IMAGES];  // パスを格納する配列
+int imageCount = 0;            // 見つかったファイルの数
+int currentIndex = 0;          // imageListの要素を参照するインデックス
+constexpr uint64_t INTERVAL = 345; // 更新間隔[sec]
+
 
 // Wi-Fi credentials file path
 const char* WIFI_CONFIG_FILE = "/wifi.txt";
@@ -234,10 +241,61 @@ void setup() {
 
   // Set EPD mode to High quality mode
   M5.Display.setEpdMode(epd_mode_t::epd_quality);
+
   // Try to display image from SD card first
   M5.Display.clearDisplay(WHITE);
   M5.Display.setRotation(2); // Upside down for M5PaperS3
   bool success = M5.Display.drawPngFile(SD, "/card.png");
+  //bool success = M5.Display.drawJpgFile(SD, "/card.jpg");//
+
+
+  
+  //
+  //参考： https://github.com/mitsuharu/CardCase-For-M5PaperV1_1
+  //SDからcardの表示に成功したとき
+  if(success)
+  {
+    //SDのルートディレクトリを走査し条件に合うファイルのパスをimageListに列挙
+    File root = SD.open("/");
+    File sdfile = root.openNextFile();
+    while (sdfile && imageCount < MAX_IMAGES) 
+    {
+      if (!sdfile.isDirectory()) 
+      {
+        String filename = sdfile.name();
+        if (!filename.startsWith(".") && (filename.endsWith(".png"))) 
+        {
+
+          imageList[imageCount] = String("/") + filename;
+          imageCount++;
+
+          String listedImage = "(" + String(imageCount) + ") " + String(filename);
+
+          // M5.Lcd.println(listedImage);
+          Serial.println(listedImage);
+        }
+      }
+      sdfile.close();
+      sdfile = root.openNextFile();
+    }
+    root.close();
+
+    
+    //SDに他にも条件に合うファイルがあり、更新間隔が0より大きく設定されているとき
+    while(success && imageCount > 1 && INTERVAL > 0)
+    {      
+      
+      success = M5.Display.drawPngFile(SD, imageList[currentIndex]);
+      M5.Power.lightSleep(INTERVAL * 1000000, false);//lightsleep時間の単位は[μsec], 画面タッチによる復帰はしない
+      //lightsleep時間経過後は次の行へ処理が進む
+      M5.Display.clearDisplay(WHITE);
+      currentIndex = (currentIndex + 1) % imageCount;
+
+    }
+  }
+  //
+
+
 
   // If SD card image not found, try LittleFS
   if (!success) {
